@@ -116,13 +116,12 @@ function PaymentModal({ bill, onClose }: { bill: Bill; onClose: () => void }) {
         </div>
         {/* 按鈕區 */}
         <div className="flex justify-center space-x-4">
-          <Button
+          {/* <Button
             className="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded"
             onClick={onClose}
           >
             Cancel
-          </Button>
-
+          </Button> */}
           <Button 
             className="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded"
             onClick={() => {
@@ -210,7 +209,6 @@ export default function Home() {
             crypto_amount: 0.3,
             photo: "https://example.com/photo1.jpg",
             status: 1,
-            helper_address: "0x1234567890abcdef",
             description: "ChunShuiTang Bubble Tea",
           },
           {
@@ -222,7 +220,6 @@ export default function Home() {
             crypto_amount: 60,
             photo: "https://example.com/photo2.jpg",
             status: 2,
-            helper_address: "0x1234567890abcdef",
             description: "Taiwan Beer",
           }
         ];
@@ -271,7 +268,7 @@ export default function Home() {
             tourist_address: "0xabcdef1234567890",
             crypto: "USDT",
             chain: "Ethereum",
-            twd_amount: 200,
+            twd_amount: 2000,
             crypto_amount: 60,
             photo: "https://example.com/photo2.jpg",
             status: 3,
@@ -546,10 +543,11 @@ export default function Home() {
                     key={bill._id}
                     className="relative bg-gray-800 p-4 rounded-lg border border-gray-700 w-full"
                   >
-                    <div className="flex justify-between items-center mb-2">
-                      <div className="text-sm text-gray-400">
-                        Request by: {bill.tourist_address}
-                      </div>
+                    <div className="text-sm text-gray-400">
+                      Request by: {bill.tourist_address}
+                    </div>
+                    <div className="text-sm text-gray-400">
+                      Paid by: {bill.helper_address}
                     </div>
                     <div className="text-sm">
                       Discription: {bill.description}
