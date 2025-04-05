@@ -3,6 +3,7 @@ import { NextResponse ,NextRequest} from 'next/server';
 import { connectToDatabase } from '@/lib/connectDB';
 import { Order } from '@/app/db_models/orders';
 
+
 export async function POST(req: NextRequest) {
 
 	await connectToDatabase();
@@ -15,12 +16,12 @@ export async function POST(req: NextRequest) {
 	const twd_amount = parseFloat(formData.get('twd_amount') as string);
 	const crypto_amount = parseFloat(formData.get('crypto_amount') as string);
 	const imageFile = formData.get('photo') as File; // if it's a file upload
+	const description = formData.get('description') as string;
 
 
 	const buffer = Buffer.from(await imageFile.arrayBuffer());
 	const base64Image = `data:${imageFile.type};base64,${buffer.toString('base64')}`;
 	
-
 	// add account info to User db
 	const newOrder = new Order({
 		tourist_address,
@@ -29,12 +30,16 @@ export async function POST(req: NextRequest) {
         twd_amount,
         crypto_amount,
         photo: base64Image,
+		description,
 	});
 
 	await newOrder.save();
 
+	console.log({...newOrder._doc})
+
 	return NextResponse.json({
-        id: newOrder._id
+        //id: newOrder._id
+		...newOrder._doc,
     }, {status: 200});
 
 }
@@ -42,6 +47,7 @@ export async function POST(req: NextRequest) {
 export async function GET(request: NextRequest) {
 	const searchParams = request.nextUrl.searchParams;
 	const order_id = searchParams.get('id');
+	const status = searchParams.get('status');
 
 	await connectToDatabase();
 
@@ -59,6 +65,21 @@ export async function GET(request: NextRequest) {
 
 			return NextResponse.json(order, { status: 200 });
 		}
+
+		// return specific status
+		if (status) {
+			const order = await Order.findOne({ status });
+		
+			if (!order) {
+				return NextResponse.json({
+					status: 404,
+					message: `No order found with status "${status}"`,
+				}, { status: 404 });
+			}
+		
+			return NextResponse.json(order, { status: 200 });
+		}
+		
 
 		// If no ID provided, return all orders
 		const orders = await Order.find();
