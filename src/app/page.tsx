@@ -151,29 +151,6 @@ export default function Home() {
   const [closedBills, setClosedBills] = useState<any[]>([]);
   const [billPaid, setBillPaid] = useState(false);
 
-
-  useEffect(() => {
-    if (!selectedBill) return;
-    const intervalId = setInterval(async () => {
-      try {
-        // const res = await fetch(`/api/bill-status?billId=${selectedBill.id}`);
-        // const data = await res.json();
-        // 假設 API 回傳 { status: "paid" } 當付款完成時
-        if (true) {
-          setBillPaid(true);
-          clearInterval(intervalId);
-          if (paymentCountdown === 0) {
-            setPaymentCountdown(300);
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching bill status", error);
-      }
-    }, 5000); // 每 5 秒呼叫一次
-  
-    return () => clearInterval(intervalId);
-  }, [selectedBill]);
-
   const [formData, setFormData] = useState({
     orderID: "",
     tourist_address: "",
@@ -188,19 +165,14 @@ export default function Home() {
   });
 
   useEffect(() => {
-    const fetchOrders = async () => {
+    let intervalId:any;
+    const fetchOrder = async () => {
       try {
-        // const res = await fetch('/api/order');
-        // if (res.ok) {
-        //   const allBill = await res.json();
-        //   // 假如 allBill 是陣列，請用展開運算子來合併現有與新資料
-        //   setBills((prev) => [...prev, ...allBill]);
-        //   // 若 API 回傳的是完整資料，直接 setBills(allBill) 也可以
-        //   // setBills(allBill);
-        // }
-        // 模擬 API 回傳資料
-        const allBill = [
-          {
+        const order_id = localStorage.getItem("order_id");
+        const res = await fetch(`https://f1af-111-235-226-130.ngrok-free.app/api/order?id=${order_id}`);
+        
+        if (res.ok) {
+          const order = {
             _id: "1",
             tourist_address: "0xabcdef1234567890",
             crypto: "ETH",
@@ -210,20 +182,66 @@ export default function Home() {
             photo: "https://example.com/photo1.jpg",
             status: 1,
             description: "ChunShuiTang Bubble Tea",
-          },
-          {
-            _id: "2",
-            tourist_address: "0xabcdef1234567890",
-            crypto: "USDT",
-            chain: "Ethereum",
-            twd_amount: 200,
-            crypto_amount: 60,
-            photo: "https://example.com/photo2.jpg",
-            status: 2,
-            description: "Taiwan Beer",
+          };
+
+          if (order.status === 2) {
+            setPaymentCountdown(300);
+            clearInterval(intervalId);
           }
-        ];
-        setBills(allBill);
+        } else {
+          // console.error("取得訂單失敗，狀態碼：", res.status);
+        }
+      } catch (error) {
+        console.error("Fetch orders failed:", error);
+      }
+    };
+
+    // 初次載入時呼叫一次
+    fetchOrder();
+    // 每 5 秒呼叫一次 API
+    intervalId = setInterval(fetchOrder, 5000);
+
+    // 清除定時器
+    return () => clearInterval(intervalId);
+  }, [selectedBill?._id]);
+
+  useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        const res = await fetch('https://f1af-111-235-226-130.ngrok-free.app/api/order');
+        if (res.ok) {
+          const allBill = await res.json();
+          // 假如 allBill 是陣列，請用展開運算子來合併現有與新資料
+          setBills((prev) => [...prev, ...allBill]);
+          // 若 API 回傳的是完整資料，直接 setBills(allBill) 也可以
+          // setBills(allBill);
+        }
+
+        // const allBill = [
+        //   {
+        //     _id: "1",
+        //     tourist_address: "0xabcdef1234567890",
+        //     crypto: "ETH",
+        //     chain: "Polygon",
+        //     twd_amount: 1000,
+        //     crypto_amount: 0.3,
+        //     photo: "https://example.com/photo1.jpg",
+        //     status: 1,
+        //     description: "ChunShuiTang Bubble Tea",
+        //   },
+        //   {
+        //     _id: "2",
+        //     tourist_address: "0xabcdef1234567890",
+        //     crypto: "USDT",
+        //     chain: "Ethereum",
+        //     twd_amount: 2000,
+        //     crypto_amount: 60,
+        //     photo: "https://example.com/photo2.jpg",
+        //     status: 2,
+        //     description: "Taiwan Beer",
+        //   }
+        // ];
+        // setBills(allBill);
       } catch (error) {
         console.error('Fetch orders failed:', error);
       }
@@ -371,26 +389,16 @@ export default function Home() {
     // form.append("tips", formData.tips);
 
     try {
-      // const res = await fetch("/api/order", {
-      //   method: "POST",
-      //   body: form,
-      // });
+      const res = await fetch("https://f1af-111-235-226-130.ngrok-free.app//api/order", {
+        method: "POST",
+        body: form,
+      });
 
-      // if (!res.ok) throw new Error("Upload failed");
+      if (!res.ok) throw new Error("Upload failed");
 
-      // const savedBill = await res.json();
-      // 模擬 API 回傳資料
-      const savedBill = {
-        id: 123, // savedBill.id_,
-        tourist_address: formData.tourist_address,
-        twd_amount: formData.twd_amount,
-        crypto: formData.crypto,
-        description: formData.description,
-        chain: formData.chain,
-        crypto_amount: formData.crypto_amount,
-        photo: formData.photo,
-      };
+      const savedBill = await res.json();
 
+      localStorage.setItem("order_id", savedBill._id);
       setSelectedBill(savedBill); // 顯示訂單詳情
       setFormData({
         orderID: "",
@@ -572,33 +580,29 @@ export default function Home() {
               <h1 className="text-2xl md:text-3xl font-bold mb-6">Order Detail</h1>
               <div className="bg-gray-800 p-4 rounded-lg border border-gray-700 mb-4">
                 <p>
-                  <span className="font-bold">OrderID:</span> {selectedBill.id}
+                  <span className="font-bold">OrderID:</span> {selectedBill._id}
                 </p>
                 <p>
-                  <span className="font-bold">Uploader:</span> {selectedBill.uploader}
+                  <span className="font-bold">Uploader:</span> {selectedBill.tourist_address}
                 </p>
                 <p>
-                  <span className="font-bold">Amount:</span> {selectedBill.amountNTD} NTD / {selectedBill.amountUSD} USD
+                  <span className="font-bold">Amount:</span> {selectedBill.twd_amount} NTD / {selectedBill.usd_amount} USD
                 </p>
                 <p>
-                  <span className="font-bold">Crypto:</span> {selectedBill.amount} {selectedBill.crypto} 
+                  <span className="font-bold">Crypto:</span> {selectedBill.crypto_amount} {selectedBill.crypto} 
                 </p>
                 <p>
                   <span className="font-bold">Discription:</span> {selectedBill.description}
                 </p>
-                <p>
+                {/* <p>
                   <span className="font-bold">Tips:</span> {selectedBill.tips} USD
-                </p>
+                </p> */}
                 <p>
                   <span className="font-bold">Chain:</span> {selectedBill.chain}
                 </p>
               </div>
               <div className="flex gap-4">
                 {(paymentCountdown > 0 && !billPaid) ? (
-                  <Button variant="default" disabled className="cursor-not-allowed">
-                    Done ({formattedCountdown})
-                  </Button>
-                ) : (
                   <Button
                     variant="default"
                     className="hover:bg-green-500 hover:text-white"
@@ -606,7 +610,14 @@ export default function Home() {
                       // 例如：結束訂單明細的顯示，並重置 billPaid 狀態
                       setSelectedBill(null);
                       setBillPaid(false);
-                    }}
+                    }}>
+                    Done ({formattedCountdown})
+                  </Button>
+                ) : (
+                  <Button
+                    variant="default"
+                    disabled
+                    className="cursor-not-allowed"
                   >
                     Done
                   </Button>
