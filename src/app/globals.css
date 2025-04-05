@@ -5,6 +5,11 @@
 body {
   font-family: 'Space Grotesk', sans-serif;
 }
+
+html {
+  scroll-behavior: smooth;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
