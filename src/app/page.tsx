@@ -1,19 +1,36 @@
 "use client";
 
+import { useEffect, useState } from "react";
 declare global {
   interface Window {
     ethereum?: any;
   }
 }
-import { useEffect, useState } from "react";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { ethers } from "ethers";
 import { motion } from "framer-motion";
-import { Wallet, Wallet2, Globe2 } from "lucide-react";
+import { Wallet, ReceiptText, BanknoteArrowUp } from "lucide-react";
 
 export default function Home() {
   const [account, setAccount] = useState<string | null>(null);
+  const [bills, setBills] = useState<any[]>([]);
+  const [formData, setFormData] = useState({
+    amount: "",
+    currency: "",
+    description: "",
+    reward: "",
+    file: null as File | null,
+  });
 
   useEffect(() => {
     if (typeof window.ethereum !== "undefined") {
@@ -38,68 +55,111 @@ export default function Home() {
     }
   };
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setFormData((prev) => ({ ...prev, file }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.file) return;
+    const newBill = {
+      id: Date.now(),
+      uploader: account,
+      ...formData,
+    };
+    setBills((prev) => [...prev, newBill]);
+    setFormData({ amount: "", currency: "", description: "", reward: "", file: null });
+  };
+
   return (
-    <main className="min-h-screen flex bg-gradient-to-br from-black via-gray-900 to-gray-800 text-white">
-      {/* Sidebar */}
-      <aside className="w-64 bg-gray-900 p-6 border-r border-gray-700 flex flex-col gap-4">
-        <h2 className="text-2xl font-bold mb-6">🧠 Web3 App</h2>
-        <Tabs defaultValue="home" className="flex flex-col gap-2">
-          <TabsList className="flex flex-col gap-2 bg-transparent p-0">
-            <TabsTrigger value="home" className="justify-start w-full">
-              <Globe2 className="mr-2 h-5 w-5" /> 首頁
+    <main className="min-h-screen flex flex-col md:flex-row bg-gradient-to-br from-black via-gray-900 to-gray-800 text-white">
+      <aside className="w-full md:w-64 bg-gray-900 p-4 md:p-6 border-b md:border-b-0 md:border-r border-gray-700 flex md:flex-col items-center md:items-start gap-4">
+        <h2 className="text-xl md:text-2xl font-bold">ETHGlobal Taipei</h2>
+        <Tabs defaultValue="payment" className="w-full">
+          <TabsList className="flex md:flex-col w-full gap-2 bg-transparent p-0 mt-6">
+            <TabsTrigger value="payment" className="justify-start w-full">
+              <BanknoteArrowUp className="mr-2 h-5 w-5" /> Pending Payments
             </TabsTrigger>
-            <TabsTrigger value="wallet" className="justify-start w-full">
-              <Wallet2 className="mr-2 h-5 w-5" /> 我的錢包
-            </TabsTrigger>
-            <TabsTrigger value="about" className="justify-start w-full">
-              🧬 關於
+            <TabsTrigger value="upload" className="justify-start w-full">
+              <ReceiptText className="mr-2 h-5 w-5" /> New Bill
             </TabsTrigger>
           </TabsList>
         </Tabs>
       </aside>
 
-      {/* Main Content */}
-      <section className="flex-1 relative p-10">
-        {/* Wallet button top-right */}
-        <div className="absolute top-6 right-6">
+      <section className="flex-1 relative p-6 md:p-10">
+        <div className="absolute top-4 right-4">
           {account ? (
-            <div className="text-green-400 text-sm">
-              已連接: {account.slice(0, 6)}...{account.slice(-4)}
+            <div className="text-green-400 text-sm text-right">
+              已連接:<br /> {account.slice(0, 6)}...{account.slice(-4)}
             </div>
           ) : (
-            <Button onClick={connectWallet}>
-              <Wallet className="mr-2 h-4 w-4" /> 連接錢包
+            <Button size="sm" onClick={connectWallet}>
+              <Wallet className="mr-2 h-4 w-4" /> Connect Wallet
             </Button>
           )}
         </div>
 
-        <Tabs defaultValue="home">
-          <TabsContent value="home">
+        <Tabs defaultValue="payment">
+          <TabsContent value="payment">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-              <h1 className="text-3xl font-bold mb-4">🌍 歡迎來到 Web3 世界</h1>
-              <p className="text-gray-300">
-                使用 MetaMask 錢包連接，探索去中心化應用。
-              </p>
+              <h1 className="text-2xl md:text-3xl font-bold mb-4">📋 Open Requests</h1>
+              <div className="space-y-4">
+                {bills.length === 0 ? (
+                  <p className="text-gray-400">目前沒有待支付項目。</p>
+                ) : (
+                  bills.map((bill) => (
+                    <div
+                      key={bill.id}
+                      className="bg-gray-800 p-4 rounded-lg border border-gray-700"
+                    >
+                      <div className="flex justify-between items-center mb-2">
+                        <div className="text-sm text-gray-400">
+                          👤 {bill.uploader?.slice(0, 6)}...{bill.uploader?.slice(-4)}
+                        </div>
+                        <div className="text-sm">💰 {bill.amount} {bill.currency}</div>
+                      </div>
+                      <div className="text-gray-300 text-sm mb-2">📝 {bill.description}</div>
+                      <div className="text-sm text-yellow-400">Reward: {bill.reward} ETH</div>
+                    </div>
+                  ))
+                )}
+              </div>
             </motion.div>
           </TabsContent>
 
-          <TabsContent value="wallet">
+          <TabsContent value="upload">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-              <h1 className="text-3xl font-bold mb-4">💼 我的錢包</h1>
-              {account ? (
-                <p>錢包地址：{account}</p>
-              ) : (
-                <p>請先連接你的 MetaMask 錢包。</p>
-              )}
-            </motion.div>
-          </TabsContent>
-
-          <TabsContent value="about">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-              <h1 className="text-3xl font-bold mb-4">📚 關於本站</h1>
-              <p>
-                本站使用 Next.js + Tailwind CSS + Shadcn UI + ethers.js 打造，是個極簡且酷炫的 Web3 框架。
-              </p>
+              <h1 className="text-2xl md:text-3xl font-bold mb-4">🧾 Upload a New Bill</h1>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <Label>Amount</Label>
+                  <Input name="amount" value={formData.amount} onChange={handleInputChange} required />
+                </div>
+                <div>
+                  <Label>Currency</Label>
+                  <Input name="currency" value={formData.currency} onChange={handleInputChange} required />
+                </div>
+                <div>
+                  <Label>Description</Label>
+                  <Textarea name="description" value={formData.description} onChange={handleInputChange} required />
+                </div>
+                <div>
+                  <Label>Reward Offered (ETH)</Label>
+                  <Input name="reward" value={formData.reward} onChange={handleInputChange} />
+                </div>
+                <div>
+                  <Label>QR Code Image</Label>
+                  <Input type="file" accept="image/*" onChange={handleFileChange} required />
+                </div>
+                <Button type="submit">Create Request</Button>
+              </form>
             </motion.div>
           </TabsContent>
         </Tabs>
