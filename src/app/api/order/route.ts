@@ -35,8 +35,6 @@ export async function POST(req: NextRequest) {
 
 	await newOrder.save();
 
-	console.log({...newOrder._doc})
-
 	return NextResponse.json({
         //id: newOrder._id
 		...newOrder._doc,
