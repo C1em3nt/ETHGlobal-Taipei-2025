@@ -166,31 +166,27 @@ export default function Home() {
 
   useEffect(() => {
     let intervalId:any;
+    
     const fetchOrder = async () => {
+
       try {
         const order_id = localStorage.getItem("order_id");
-        const res = await fetch(`https://f1af-111-235-226-130.ngrok-free.app/api/order?id=${order_id}`);
-        
-        if (res.ok) {
-          const order = {
-            _id: "1",
-            tourist_address: "0xabcdef1234567890",
-            crypto: "ETH",
-            chain: "Polygon",
-            twd_amount: 1000,
-            crypto_amount: 0.3,
-            photo: "https://example.com/photo1.jpg",
-            status: 1,
-            description: "ChunShuiTang Bubble Tea",
-          };
 
-          if (order.status === 2) {
-            setPaymentCountdown(300);
-            clearInterval(intervalId);
+        if ( order_id && order_id != "undefined") {
+          const res = await fetch(`/api/order?id=${order_id}`);
+        
+          if (res.ok) {
+            const order = await res.json();
+            if (order.status === 2) {
+              setPaymentCountdown(300);
+              clearInterval(intervalId);
+            }
+          } else {
+            // console.error("取得訂單失敗，狀態碼：", res.status);
           }
-        } else {
-          // console.error("取得訂單失敗，狀態碼：", res.status);
+          
         }
+        
       } catch (error) {
         console.error("Fetch orders failed:", error);
       }
@@ -208,40 +204,14 @@ export default function Home() {
   useEffect(() => {
     const fetchOrders = async () => {
       try {
-        const res = await fetch('https://f1af-111-235-226-130.ngrok-free.app/api/order');
+        const res = await fetch('/api/order');
         if (res.ok) {
           const allBill = await res.json();
           // 假如 allBill 是陣列，請用展開運算子來合併現有與新資料
-          setBills((prev) => [...prev, ...allBill]);
+          // setBills((prev) => [...prev, ...allBill]);
           // 若 API 回傳的是完整資料，直接 setBills(allBill) 也可以
-          // setBills(allBill);
+          setBills(allBill);
         }
-
-        // const allBill = [
-        //   {
-        //     _id: "1",
-        //     tourist_address: "0xabcdef1234567890",
-        //     crypto: "ETH",
-        //     chain: "Polygon",
-        //     twd_amount: 1000,
-        //     crypto_amount: 0.3,
-        //     photo: "https://example.com/photo1.jpg",
-        //     status: 1,
-        //     description: "ChunShuiTang Bubble Tea",
-        //   },
-        //   {
-        //     _id: "2",
-        //     tourist_address: "0xabcdef1234567890",
-        //     crypto: "USDT",
-        //     chain: "Ethereum",
-        //     twd_amount: 2000,
-        //     crypto_amount: 60,
-        //     photo: "https://example.com/photo2.jpg",
-        //     status: 2,
-        //     description: "Taiwan Beer",
-        //   }
-        // ];
-        // setBills(allBill);
       } catch (error) {
         console.error('Fetch orders failed:', error);
       }
@@ -250,7 +220,7 @@ export default function Home() {
     // 頁面初次載入時先呼叫一次
     fetchOrders();
     // 設定每 5 秒呼叫一次 API
-    const intervalId = setInterval(fetchOrders, 5);
+    const intervalId = setInterval(fetchOrders, 5000);
 
     // 清除定時器
     return () => clearInterval(intervalId);
@@ -259,42 +229,15 @@ export default function Home() {
   useEffect(() => {
     const fetchClosedOrders = async () => {
       try {
-        // const res = await fetch('/api/order');
-        // if (res.ok) {
-        //   const allBill = await res.json();
-        //   // 假如 allBill 是陣列，請用展開運算子來合併現有與新資料
-        //   setBills((prev) => [...prev, ...allBill]);
-        //   // 若 API 回傳的是完整資料，直接 setBills(allBill) 也可以
-        //   // setBills(allBill);
-        // }
-        // 模擬 API 回傳資料
-        const allBill = [
-          {
-            _id: "1",
-            tourist_address: "0xabcdef1234567890",
-            crypto: "ETH",
-            chain: "Polygon",
-            twd_amount: 1000,
-            crypto_amount: 0.3,
-            photo: "https://example.com/photo1.jpg",
-            status: 3,
-            helper_address: "0x1234567890abcdef",
-            description: "ChunShuiTang Bubble Tea",
-          },
-          {
-            _id: "2",
-            tourist_address: "0xabcdef1234567890",
-            crypto: "USDT",
-            chain: "Ethereum",
-            twd_amount: 2000,
-            crypto_amount: 60,
-            photo: "https://example.com/photo2.jpg",
-            status: 3,
-            helper_address: "0x1234567890abcdef",
-            description: "Taiwan Beer",
-          }
-        ];
-        setClosedBills(allBill);
+        const res = await fetch('/api/order');
+        if (res.ok) {
+          const allBill = await res.json();
+          // 假如 allBill 是陣列，請用展開運算子來合併現有與新資料
+          // setBills((prev) => [...prev, ...allBill]);
+          // 若 API 回傳的是完整資料，直接 setBills(allBill) 也可以
+          setClosedBills(allBill);
+        }
+  
       } catch (error) {
         console.error('Fetch orders failed:', error);
       }
@@ -303,7 +246,7 @@ export default function Home() {
     // 頁面初次載入時先呼叫一次
     fetchClosedOrders ();
     // 設定每 5 秒呼叫一次 API
-    const intervalId = setInterval(fetchClosedOrders, 5);
+    const intervalId = setInterval(fetchClosedOrders, 5000);
 
     // 清除定時器
     return () => clearInterval(intervalId);
@@ -389,7 +332,7 @@ export default function Home() {
     // form.append("tips", formData.tips);
 
     try {
-      const res = await fetch("https://f1af-111-235-226-130.ngrok-free.app//api/order", {
+      const res = await fetch("/api/order", {
         method: "POST",
         body: form,
       });
