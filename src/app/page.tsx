@@ -329,7 +329,7 @@ export default function Home() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
-    setFormData((prev) => ({ ...prev, file }));
+    setFormData((prev) => ({ ...prev, photo: file }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -657,7 +657,7 @@ export default function Home() {
                     <div className="flex items-center gap-4">
                       <Label className="text-sm whitespace-nowrap">Amount (NTD)</Label>
                       <Input
-                        name="amountNTD"
+                        name="twd_amount"
                         value={formData.twd_amount}
                         onChange={handleInputChange}
                         placeholder="NTD"
