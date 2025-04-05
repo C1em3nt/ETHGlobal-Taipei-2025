@@ -48,7 +48,7 @@ interface Bill {
 type CryptoSymbol = "ETH" | "USDT" | "USDC" | "Bitcoin";
 
 const exchangeRates = {
-  NTD_USD: 0.032, // 1 NTD = 0.032 USD
+  NTD_USD: 0.0301,
   USD_ETH: 3000,
   USD_USDT: 1,
   USD_USDC: 1,
@@ -99,9 +99,11 @@ function PaymentModal({
         </div>
         <h2 className="text-xl mb-4">Payment Countdown</h2>
         <div className="text-3xl font-bold mb-4">{formattedTime}</div>
-        {bill.photo && (
-          <img src={bill.photo} alt="Bill" className="mx-auto mb-4" />
-        )}
+        <img
+          src={bill.photo}
+          alt="Bill"
+          className="mx-auto mb-4 w-[50vw] h-[50vw] max-w-[300px] max-h-[300px] object-cover rounded-lg"
+        />
         {/* TxCode 輸入欄位 */}
         <div className="mb-4 text-left">
           <Label htmlFor="txCode" className="mb-1">
@@ -201,7 +203,7 @@ function PaymentModal({
   
 export default function Home() {
   const [selectedBill, setSelectedBill] = useState<any | null>(null);
-  const [paymentCountdown, setPaymentCountdown] = useState(0);
+  const [paymentCountdown, setPaymentCountdown] = useState(-1);
   const [selectedPayment, setSelectedPayment] = useState<any | null>(null);
   const [account, setAccount] = useState<string | null>(null);
   const [bills, setBills] = useState<any[]>([]);
@@ -228,7 +230,7 @@ export default function Home() {
       try {
         const order_id = localStorage.getItem("order_id");
 
-        if ( order_id) {
+        if ( order_id ) {
           const res = await fetch(`/api/order?id=${order_id}`);
           
           if (res.ok) {
@@ -329,6 +331,12 @@ export default function Home() {
           method: "eth_requestAccounts",
         });
         setAccount(accounts[0]);
+        const res = await fetch(`/api/order/pending?tourist_address=${accounts[0]}`);
+        const data = await res.json();
+        // console.log(data);
+        if (data?.hasData) {
+            setSelectedBill(data.order);
+        }
       } catch (error) {
         console.error("User rejected connection", error);
       }
@@ -445,8 +453,7 @@ export default function Home() {
 
       const savedBill = await res.json();
 
-      localStorage.setItem("order_id", savedBill._id);
-      setSelectedBill(savedBill); // 顯示訂單詳情
+      setSelectedBill(savedBill);
       setFormData({
         orderID: "",
         tourist_address: "",
@@ -553,7 +560,7 @@ export default function Home() {
         <div className="absolute top-4 right-4">
           {account ? (
             <div className="text-green-400 text-sm text-right">
-              已連接:<br /> {account}
+              Connected:<br /> {account}
             </div>
           ) : (
             <Button size="sm" onClick={connectWallet}>
@@ -580,11 +587,11 @@ export default function Home() {
                       </div>
                     </div>
                     <div className="text-sm">
-                      Discription: {bill.description}
+                      Description: {bill.description}
                     </div>
                     <div className="text-sm">
                         Amount: {bill.twd_amount} NTD
-                      </div>
+                    </div>
      
                     <div className="text-sm text-yellow-400">
                       Crypto you get: {bill.crypto_amount} {bill.crypto}
@@ -670,7 +677,7 @@ export default function Home() {
                       Paid by: {bill.helper_address}
                     </div>
                     <div className="text-sm">
-                      Discription: {bill.description}
+                      Description: {bill.description}
                     </div>
                     <div className="text-sm">
                         Amount: {bill.twd_amount} NTD
@@ -704,7 +711,7 @@ export default function Home() {
                   <span className="font-bold">Crypto:</span> {selectedBill.crypto_amount} {selectedBill.crypto} 
                 </p>
                 <p>
-                  <span className="font-bold">Discription:</span> {selectedBill.description}
+                  <span className="font-bold">Description:</span> {selectedBill.description}
                 </p>
                 {/* <p>
                   <span className="font-bold">Tips:</span> {selectedBill.tips} USD
@@ -760,6 +767,7 @@ export default function Home() {
                         console.error("執行 confirmPayment 時發生錯誤", err);
                         alert("交易失敗，請查看 console");
                       }
+                      setPaymentCountdown(-1);
                       alert("Payment complete!");
                     }}>
                     Done ({formattedCountdown})
@@ -915,12 +923,10 @@ export default function Home() {
                         <SelectContent>
                           <SelectItem value="Ethereum">Ethereum Sepolia Testnet</SelectItem>
                           <SelectItem value="Polygon">Polygon</SelectItem>
-                          {/* <SelectItem value="optimism">Optimism</SelectItem> */}
-                          {/* <SelectItem value="arbitrum">Arbitrum</SelectItem> */}
                           <SelectItem value="Zircuit">Zircuit Garfield Testnet</SelectItem>
                           <SelectItem value="Celo">Celo Alfajores Testnet</SelectItem>
-                          {/* <SelectItem value="Flow">Flow</SelectItem> */}
-                          {/* <SelectItem value="RootStock">RootStock</SelectItem> */}
+                          <SelectItem value="Flow">Flow EVM testnet</SelectItem>
+                          <SelectItem value="RootStock">RootStock</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -931,6 +937,12 @@ export default function Home() {
                       ≈ {formData.crypto_amount} {formData.crypto}
                     </div>
                   )}
+                  {formData.crypto_amount > 0 && (
+                    <div className="text-sm text-yellow-400 text-right pr-1">
+                    with Collateral ≈ {(formData.crypto_amount*1.2).toFixed(precision)} {formData.crypto}
+                    </div>
+                  )}
+ 
                   <Button type="submit" className="w-full mt-2">📤 Upload</Button>
                 </div>
               </form>
