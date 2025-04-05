@@ -17,6 +17,7 @@ export async function POST(req: NextRequest) {
 	const crypto_amount = parseFloat(formData.get('crypto_amount') as string);
 	const imageFile = formData.get('photo') as File; // if it's a file upload
 	const description = formData.get('description') as string;
+	const contract_address = formData.get('contract_address') as string;
 
 
 	const buffer = Buffer.from(await imageFile.arrayBuffer());
@@ -31,6 +32,7 @@ export async function POST(req: NextRequest) {
         crypto_amount,
         photo: base64Image,
 		description,
+		contract_address,
 	});
 
 	await newOrder.save();

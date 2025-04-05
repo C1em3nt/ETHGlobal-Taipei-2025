@@ -19,7 +19,14 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Wallet, ReceiptText, BanknoteArrowUp, Receipt } from "lucide-react";
 import { motion } from "framer-motion";
-import { access } from "fs";
+// import { ethers } from "ethers";
+import ERC20ABI from './ERC20ABI.json'; 
+import {
+  BrowserProvider,
+  Contract,
+  parseUnits,
+  toBigInt
+} from 'ethers';
 
 declare global {
   interface Window {
@@ -36,6 +43,7 @@ interface Bill {
   description: string;
   tips: number;
   photo?: string; // 若有圖片檔案，設定為可選屬性
+  contract_address: string;
 }
 type CryptoSymbol = "ETH" | "USDT" | "USDC" | "Bitcoin";
 
@@ -138,19 +146,48 @@ function PaymentModal({
                 alert("Please fill in all fields!");
                 return;
               }
+              try {
+                const provider = new BrowserProvider(window.ethereum);
+                const signer = await provider.getSigner();
+            
+                const escrowAddress = bill.contract_address;
+                const escrowABI = [
+                  "function acceptOrder() external",
+                  "function helperDeclaredPaid() external",
+                  "function confirmPayment() external",
+                  "function arbitrate() external"
+                ];
+            
+                const escrowContract = new Contract(escrowAddress, escrowABI, signer);
+            
+                const tx = await escrowContract.helperDeclaredPaid();
+                await tx.wait();
+                console.log("helperDeclaredPaid() executed");
+                const res = await fetch('/api/order/update', {
+                  method: 'POST',
+                  headers: {
+                      'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                      id: bill._id,
+                      status: 2,
+                      helper_address: account,
+                      txcode: txCode,
+                  }),
+                });
+            
+                if (res.ok) {
+                  console.log("訂單更新成功");
+                  alert("你已成功接單！");
+                } else {
+                  console.error("後端更新失敗");
+                }
+            
+              } catch (err) {
+                console.error("執行 helperDeclaredPaid 時發生錯誤", err);
+                alert("交易失敗，請查看 console");
+              }
               alert("Payment confirmed!");
-              await fetch('/api/order/update', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    id: bill._id,
-                    status: 2,
-                    helper_address: account,
-                    txcode: txCode,
-                }),
-              });
               onClose();
             }}
           >
@@ -169,7 +206,6 @@ export default function Home() {
   const [account, setAccount] = useState<string | null>(null);
   const [bills, setBills] = useState<any[]>([]);
   const [closedBills, setClosedBills] = useState<any[]>([]);
-  const [billPaid, setBillPaid] = useState(false);
 
   const [formData, setFormData] = useState({
     orderID: "",
@@ -192,7 +228,7 @@ export default function Home() {
       try {
         const order_id = localStorage.getItem("order_id");
 
-        if ( order_id && order_id != "undefined") {
+        if ( order_id) {
           const res = await fetch(`/api/order?id=${order_id}`);
           
           if (res.ok) {
@@ -273,6 +309,12 @@ export default function Home() {
   }, [paymentCountdown]);
 
   useEffect(() => {
+    if (paymentCountdown === 0 && selectedBill) {
+      alert("付款時間已到，請使用者注意！");
+    }
+  }, [paymentCountdown, selectedBill]);
+
+  useEffect(() => {
     if (typeof window.ethereum !== "undefined") {
       window.ethereum.on("accountsChanged", (accounts: string[]) => {
         setAccount(accounts[0]);
@@ -331,6 +373,55 @@ export default function Home() {
       alert("Please upload a QR code image!");
       return;
     }
+  
+    let newEscrowAddr = "";
+    try {
+      const provider = new BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+  
+      const factoryAddress = '0x649C11cF3A651bEA08cb923395eCf26C54b18982';
+      const factoryABI = [
+        "function createEscrow(address _token, uint256 _mainAmount, uint256 _collateralAmount) external",
+        "function escrowAddresses(uint256) view returns (address)",
+        "function escrowCount() view returns (uint256)"
+      ];
+  
+      const tokenAddress = "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238"; // USDC (6 decimals)
+      const token = new Contract(tokenAddress, ERC20ABI, signer);
+      const factory = new Contract(factoryAddress, factoryABI, signer);
+  
+      // ======== Get crypto amount from API =========
+      const res = await fetch(
+        `/api/crypto_conversion?twd_amount=${formData.twd_amount}&crypto=${formData.crypto}`
+      );
+  
+      if (!res.ok) throw new Error("API request failed");
+      const data = await res.json();
+  
+      const mainAmount = parseUnits(data.crypto_amount.toFixed(6), 6); // USDC: 6 decimals
+      const collateralAmount = mainAmount / 5n;
+      const totalAmount = mainAmount + collateralAmount;
+  
+      console.log("mainAmount:", mainAmount.toString());
+      console.log("collateralAmount:", collateralAmount.toString());
+  
+      const approveTx = await token.approve(factoryAddress, totalAmount);
+      await approveTx.wait();
+      console.log("Approved USDC transfer");
+  
+      const tx = await factory.createEscrow(tokenAddress, mainAmount, collateralAmount);
+      const receipt = await tx.wait();
+      console.log("Escrow created:", receipt);
+  
+      const count = await factory.escrowCount();
+      newEscrowAddr = await factory.escrowAddresses(count);
+      console.log("New Escrow Address:", newEscrowAddr);
+  
+      alert("訂單成功建立！");
+    } catch (err) {
+      console.error("交易失敗", err);
+      alert("交易失敗，請檢查 console");
+    }
 
     const form = new FormData();
     form.append("tourist_address", account);
@@ -340,6 +431,7 @@ export default function Home() {
     form.append("crypto_amount", String(formData.crypto_amount));
     form.append("photo", formData.photo);
     form.append("description", formData.description);
+    form.append("contract_address", newEscrowAddr);
     // form.append("amountUSD", formData.usd_amount);
     // form.append("tips", formData.tips);
 
@@ -504,16 +596,43 @@ export default function Home() {
                       className="absolute bottom-4 right-4 bg-green-500 hover:bg-white hover:text-green-500 text-white border border-green-500"
                       onClick={async () => {
                         setSelectedPayment(bill);
-                        const res = await fetch('/api/order/update', {
+                        try {
+                          const provider = new BrowserProvider(window.ethereum);
+                          const signer = await provider.getSigner();
+                      
+                          const escrowAddress = bill.contract_address;
+                          const escrowABI = [
+                            "function acceptOrder() external",
+                            "function helperDeclaredPaid() external",
+                            "function confirmPayment() external",
+                            "function arbitrate() external"
+                          ];
+                      
+                          const escrowContract = new Contract(escrowAddress, escrowABI, signer);
+                      
+                          const tx = await escrowContract.acceptOrder();
+                          await tx.wait();
+                          console.log("acceptOrder() executed");
+                          const res = await fetch('/api/order/update', {
                             method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
+                            headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
-                                id: bill._id,
-                                status: 1,
+                              id: bill._id,
+                              status: 1,
                             }),
-                        });
+                          });
+                      
+                          if (res.ok) {
+                            console.log("訂單更新成功");
+                            alert("你已成功接單！");
+                          } else {
+                            console.error("後端更新失敗");
+                          }
+                      
+                        } catch (err) {
+                          console.error("執行 acceptOrder 時發生錯誤", err);
+                          alert("交易失敗，請查看 console");
+                        }
                       }}
                     >
                       Pay
@@ -595,25 +714,53 @@ export default function Home() {
                 </p>
               </div>
               <div className="flex gap-4">
-                {(paymentCountdown > 0 && !billPaid) ? (
+                {(paymentCountdown > 0) ? (
                   <Button
                     variant="default"
                     className="hover:bg-green-500 hover:text-white"
                     onClick={async () => {
                       setSelectedBill(null);
-                      setBillPaid(false);
 
+                      try {
+                        const provider = new BrowserProvider(window.ethereum);
+                        const signer = await provider.getSigner();
+                    
+                        const escrowAddress = selectedBill.contract_address;
+                        const escrowABI = [
+                          "function acceptOrder() external",
+                          "function helperDeclaredPaid() external",
+                          "function confirmPayment() external",
+                          "function arbitrate() external"
+                        ];
+                    
+                        const escrowContract = new Contract(escrowAddress, escrowABI, signer);
+                    
+                        const tx = await escrowContract.confirmPayment();
+                        await tx.wait();
+                        console.log("confirmPayment() executed");
+                        const res = await fetch('/api/order/update', {
+                          method: 'POST',
+                          headers: {
+                              'Content-Type': 'application/json',
+                          },
+                          body: JSON.stringify({
+                              id: selectedBill._id,
+                              status: 3,
+                          }),
+                        });
+                    
+                        if (res.ok) {
+                          console.log("訂單更新成功");
+                          alert("你已成功接單！");
+                        } else {
+                          console.error("後端更新失敗");
+                        }
+                    
+                      } catch (err) {
+                        console.error("執行 confirmPayment 時發生錯誤", err);
+                        alert("交易失敗，請查看 console");
+                      }
                       alert("Payment complete!");
-                      await fetch('/api/order/update', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            id: selectedBill._id,
-                            status: 3,
-                        }),
-                      });
                     }}>
                     Done ({formattedCountdown})
                   </Button>

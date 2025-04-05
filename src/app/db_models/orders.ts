@@ -11,6 +11,7 @@ interface IOrder {
   helper_address?: string;
   description?: string;
   txcode?: string;
+  contract_address?: string;
 }
 
 interface IOrderDocument extends IOrder, Document {}
@@ -57,6 +58,11 @@ const OrderSchema: Schema = new Schema({
     type: String,
     required: false,
   },
+  contract_address: {
+    type: String,
+    required: false,
+  },
+  
 }, { versionKey: false, timestamps: true }); // Add timestamps if you want createdAt/updatedAt
 
 const Order: Model<IOrderDocument> = mongoose.models.Order || mongoose.model<IOrderDocument>('Order', OrderSchema);
