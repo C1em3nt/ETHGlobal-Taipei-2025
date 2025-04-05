@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
 
 		// return specific status
 		if (status) {
-			const order = await Order.findOne({ status });
+			const order = await Order.find({ status });
 		
 			if (!order) {
 				return NextResponse.json({

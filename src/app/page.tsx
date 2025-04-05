@@ -19,6 +19,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Wallet, ReceiptText, BanknoteArrowUp, Receipt } from "lucide-react";
 import { motion } from "framer-motion";
+import { access } from "fs";
 
 declare global {
   interface Window {
@@ -53,7 +54,15 @@ const cryptoDisplayPrecision: Record<CryptoSymbol, number> = {
   Bitcoin: 8,
 };
 
-function PaymentModal({ bill, onClose }: { bill: Bill; onClose: () => void }) {
+function PaymentModal({
+  bill,
+  account,
+  onClose,
+}: {
+  bill: Bill;
+  account: string | null;
+  onClose: () => void;
+}) {
   const [timeLeft, setTimeLeft] = useState(300);
   const [txCode, setTxCode] = useState("");
   const [crypto, setCrypto] = useState("");
@@ -88,17 +97,17 @@ function PaymentModal({ bill, onClose }: { bill: Bill; onClose: () => void }) {
         {/* TxCode 輸入欄位 */}
         <div className="mb-4 text-left">
           <Label htmlFor="txCode" className="mb-1">
-            TxCode
+            QR payment TxCode
           </Label>
           <Input
             id="txCode"
             type="text"
             value={txCode}
             onChange={(e) => setTxCode(e.target.value)}
-            placeholder="輸入 TxCode"
+            placeholder="Input QR payment TxCode"
           />
         </div>
-        <div className="mb-4 text-left">
+        {/* <div className="mb-4 text-left">
           <Label htmlFor="crypto" className="mb-1">
             Crypto
           </Label>
@@ -113,7 +122,7 @@ function PaymentModal({ bill, onClose }: { bill: Bill; onClose: () => void }) {
               <SelectItem value="Bitcoin">Bitcoin</SelectItem>
             </SelectContent>
           </Select>
-        </div>
+        </div> */}
         {/* 按鈕區 */}
         <div className="flex justify-center space-x-4">
           {/* <Button
@@ -124,13 +133,24 @@ function PaymentModal({ bill, onClose }: { bill: Bill; onClose: () => void }) {
           </Button> */}
           <Button 
             className="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded"
-            onClick={() => {
-              if (!txCode || !crypto) {
+            onClick={async () => {
+              if (!txCode) {
                 alert("Please fill in all fields!");
                 return;
               }
               alert("Payment confirmed!");
-              // call api in src/api/confirm to modify bill status
+              await fetch('/api/order/update', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    id: bill._id,
+                    status: 2,
+                    helper_address: account,
+                    txcode: txCode,
+                }),
+              });
               onClose();
             }}
           >
@@ -144,7 +164,7 @@ function PaymentModal({ bill, onClose }: { bill: Bill; onClose: () => void }) {
   
 export default function Home() {
   const [selectedBill, setSelectedBill] = useState<any | null>(null);
-  const [paymentCountdown, setPaymentCountdown] = useState(300);
+  const [paymentCountdown, setPaymentCountdown] = useState(0);
   const [selectedPayment, setSelectedPayment] = useState<any | null>(null);
   const [account, setAccount] = useState<string | null>(null);
   const [bills, setBills] = useState<any[]>([]);
@@ -174,15 +194,13 @@ export default function Home() {
 
         if ( order_id && order_id != "undefined") {
           const res = await fetch(`/api/order?id=${order_id}`);
-        
+          
           if (res.ok) {
             const order = await res.json();
             if (order.status === 2) {
               setPaymentCountdown(300);
               clearInterval(intervalId);
             }
-          } else {
-            // console.error("取得訂單失敗，狀態碼：", res.status);
           }
           
         }
@@ -199,17 +217,14 @@ export default function Home() {
 
     // 清除定時器
     return () => clearInterval(intervalId);
-  }, [selectedBill?._id]);
+  }, []);
 
   useEffect(() => {
     const fetchOrders = async () => {
       try {
-        const res = await fetch('/api/order');
+        const res = await fetch('/api/order?status=0');
         if (res.ok) {
           const allBill = await res.json();
-          // 假如 allBill 是陣列，請用展開運算子來合併現有與新資料
-          // setBills((prev) => [...prev, ...allBill]);
-          // 若 API 回傳的是完整資料，直接 setBills(allBill) 也可以
           setBills(allBill);
         }
       } catch (error) {
@@ -229,15 +244,12 @@ export default function Home() {
   useEffect(() => {
     const fetchClosedOrders = async () => {
       try {
-        const res = await fetch('/api/order');
+        const res = await fetch('/api/order?status=3');
         if (res.ok) {
           const allBill = await res.json();
-          // 假如 allBill 是陣列，請用展開運算子來合併現有與新資料
-          // setBills((prev) => [...prev, ...allBill]);
-          // 若 API 回傳的是完整資料，直接 setBills(allBill) 也可以
+          console.log(allBill);
           setClosedBills(allBill);
         }
-  
       } catch (error) {
         console.error('Fetch orders failed:', error);
       }
@@ -467,7 +479,19 @@ export default function Home() {
                       size="sm"
                       variant="default"
                       className="absolute bottom-4 right-4 bg-green-500 hover:bg-white hover:text-green-500 text-white border border-green-500"
-                      onClick={() => {setSelectedPayment(bill);}}
+                      onClick={async () => {
+                        setSelectedPayment(bill);
+                        const res = await fetch('/api/order/update', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                id: bill._id,
+                                status: 1,
+                            }),
+                        });
+                      }}
                     >
                       Pay
                     </Button>
@@ -479,9 +503,12 @@ export default function Home() {
         </TabsContent>
         {/* 當選擇一筆帳單時顯示 Modal */}
         {selectedPayment && (
-          <PaymentModal bill={selectedPayment} onClose={() => setSelectedPayment(null)} />
+          <PaymentModal
+            bill={selectedPayment}
+            account={account}
+            onClose={() => setSelectedPayment(null)}
+          />
         )}
-
         <TabsContent value="closed">
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <h1 className="text-2xl md:text-3xl font-bold mb-4">Complete Payment</h1>
@@ -549,10 +576,21 @@ export default function Home() {
                   <Button
                     variant="default"
                     className="hover:bg-green-500 hover:text-white"
-                    onClick={() => {
-                      // 例如：結束訂單明細的顯示，並重置 billPaid 狀態
+                    onClick={async () => {
                       setSelectedBill(null);
                       setBillPaid(false);
+
+                      alert("Payment complete!");
+                      await fetch('/api/order/update', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            id: selectedBill._id,
+                            status: 3,
+                        }),
+                      });
                     }}>
                     Done ({formattedCountdown})
                   </Button>
