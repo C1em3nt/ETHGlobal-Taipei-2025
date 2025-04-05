@@ -49,8 +49,8 @@ const exchangeRates = {
 
 const cryptoDisplayPrecision: Record<CryptoSymbol, number> = {
   ETH: 6,
-  USDT: 2,
-  USDC: 2,
+  USDT: 4,
+  USDC: 4,
   Bitcoin: 8,
 };
 
@@ -400,16 +400,39 @@ export default function Home() {
     }
   }, [formData.twd_amount]);
 
-  useEffect(() => {
-    if (formData.crypto && totalCrypto > 0) {
-      setFormData((prev) => ({
-        ...prev,
-        crypto_amount: parseFloat(totalCrypto.toFixed(6)),
-      }));
-    }
-  }, [totalCrypto, formData.crypto]);
+  // useEffect(() => {
+  //   if (formData.crypto && totalCrypto > 0) {
+  //     setFormData((prev) => ({
+  //       ...prev,
+  //       crypto_amount: parseFloat(totalCrypto.toFixed(6)),
+  //     }));
+  //   }
+  // }, [totalCrypto, formData.crypto]);
 
   const precision = cryptoDisplayPrecision[formData.crypto as CryptoSymbol] || 6;
+
+  useEffect(() => {
+    const fetchCryptoAmount = async () => {
+      if (formData.twd_amount && formData.crypto) {
+        try {
+          const res = await fetch(
+            `/api/crypto_conversion?twd_amount=${formData.twd_amount}&crypto=${formData.crypto}`
+          );
+          console.log(res);
+          const data = await res.json();
+          setFormData((prev) => ({
+            ...prev,
+            crypto_amount: parseFloat(data.crypto_amount.toFixed(precision)),
+          }));
+        } catch (err) {
+          console.error("Failed to fetch crypto conversion", err);
+        }
+      }
+    };
+  
+    fetchCryptoAmount();
+  }, [formData.twd_amount, formData.crypto]);
+
 
   const minutes = Math.floor(paymentCountdown / 60);
   const seconds = paymentCountdown % 60;
@@ -743,22 +766,22 @@ export default function Home() {
                           <SelectValue placeholder="Choose Chain" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="polygon">Polygon</SelectItem>
-                          <SelectItem value="optimism">Optimism</SelectItem>
-                          <SelectItem value="arbitrum">Arbitrum</SelectItem>
-                          <SelectItem value="ethereum">Ethereum</SelectItem>
-                          <SelectItem value="Zircuit">Zircuit</SelectItem>
-                          <SelectItem value="Celo">Celo</SelectItem>
-                          <SelectItem value="Flow">Flow</SelectItem>
-                          <SelectItem value="RootStock">RootStock</SelectItem>
+                          <SelectItem value="Ethereum">Ethereum Sepolia Testnet</SelectItem>
+                          <SelectItem value="Polygon">Polygon</SelectItem>
+                          {/* <SelectItem value="optimism">Optimism</SelectItem> */}
+                          {/* <SelectItem value="arbitrum">Arbitrum</SelectItem> */}
+                          <SelectItem value="Zircuit">Zircuit Garfield Testnet</SelectItem>
+                          <SelectItem value="Celo">Celo Alfajores Testnet</SelectItem>
+                          {/* <SelectItem value="Flow">Flow</SelectItem> */}
+                          {/* <SelectItem value="RootStock">RootStock</SelectItem> */}
                         </SelectContent>
                       </Select>
                     </div>
                   </div>
 
-                  {formData.crypto && usdAmount > 0 && (
+                  {formData.crypto_amount > 0 && (
                     <div className="text-sm text-yellow-400 text-right pr-1">
-                      ≈ {cryptoAmount.toFixed(precision)}+{cryptoTips.toFixed(precision)} {formData.crypto}
+                      ≈ {formData.crypto_amount} {formData.crypto}
                     </div>
                   )}
                   <Button type="submit" className="w-full mt-2">📤 Upload</Button>
