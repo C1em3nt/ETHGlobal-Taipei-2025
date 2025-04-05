@@ -1,22 +1,5 @@
 "use client";
 import { use, useEffect, useState } from "react";
-declare global {
-  interface Window {
-    ethereum?: any;
-  }
-}
-interface Bill {
-  id: string;
-  uploader: string;
-  amountNTD: number;
-  currency: string;
-  description: string;
-  tips: number;
-  file?: string; // 若有圖片檔案，設定為可選屬性
-}
-
-import { cn } from "@/lib/utils";
-import { v4 as uuidv4 } from "uuid";
 import {
   Tabs,
   TabsList,
@@ -34,9 +17,25 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Wallet, ReceiptText, BanknoteArrowUp } from "lucide-react";
+import { Wallet, ReceiptText, BanknoteArrowUp, Receipt } from "lucide-react";
 import { motion } from "framer-motion";
 
+declare global {
+  interface Window {
+    ethereum?: any;
+  }
+}
+interface Bill {
+  _id: string;
+  tourist_address: string;
+  twd_amount: number;
+  crypto: string;
+  chain: string;
+  crypto_amount: number;
+  description: string;
+  tips: number;
+  photo?: string; // 若有圖片檔案，設定為可選屬性
+}
 type CryptoSymbol = "ETH" | "USDT" | "USDC" | "Bitcoin";
 
 const exchangeRates = {
@@ -78,10 +77,13 @@ function PaymentModal({ bill, onClose }: { bill: Bill; onClose: () => void }) {
       <div className="absolute inset-0 bg-black opacity-50" onClick={onClose}></div>
       {/* Modal 內容 */}
       <div className="bg-gray-800 p-6 rounded-lg relative z-10 text-center">
+        <div className="text-sm mb-1">
+          Bill ID: {bill._id}
+        </div>
         <h2 className="text-xl mb-4">Payment Countdown</h2>
         <div className="text-3xl font-bold mb-4">{formattedTime}</div>
-        {bill.file && (
-          <img src={bill.file} alt="Bill" className="mx-auto mb-4" />
+        {bill.photo && (
+          <img src={bill.photo} alt="Bill" className="mx-auto mb-4" />
         )}
         {/* TxCode 輸入欄位 */}
         <div className="mb-4 text-left">
@@ -147,6 +149,7 @@ export default function Home() {
   const [selectedPayment, setSelectedPayment] = useState<any | null>(null);
   const [account, setAccount] = useState<string | null>(null);
   const [bills, setBills] = useState<any[]>([]);
+  const [closedBills, setClosedBills] = useState<any[]>([]);
   const [billPaid, setBillPaid] = useState(false);
 
 
@@ -186,6 +189,112 @@ export default function Home() {
   });
 
   useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        // const res = await fetch('/api/order');
+        // if (res.ok) {
+        //   const allBill = await res.json();
+        //   // 假如 allBill 是陣列，請用展開運算子來合併現有與新資料
+        //   setBills((prev) => [...prev, ...allBill]);
+        //   // 若 API 回傳的是完整資料，直接 setBills(allBill) 也可以
+        //   // setBills(allBill);
+        // }
+        // 模擬 API 回傳資料
+        const allBill = [
+          {
+            _id: "1",
+            tourist_address: "0xabcdef1234567890",
+            crypto: "ETH",
+            chain: "Polygon",
+            twd_amount: 1000,
+            crypto_amount: 0.3,
+            photo: "https://example.com/photo1.jpg",
+            status: 1,
+            helper_address: "0x1234567890abcdef",
+            description: "ChunShuiTang Bubble Tea",
+          },
+          {
+            _id: "2",
+            tourist_address: "0xabcdef1234567890",
+            crypto: "USDT",
+            chain: "Ethereum",
+            twd_amount: 200,
+            crypto_amount: 60,
+            photo: "https://example.com/photo2.jpg",
+            status: 2,
+            helper_address: "0x1234567890abcdef",
+            description: "Taiwan Beer",
+          }
+        ];
+        setBills(allBill);
+      } catch (error) {
+        console.error('Fetch orders failed:', error);
+      }
+    };
+
+    // 頁面初次載入時先呼叫一次
+    fetchOrders();
+    // 設定每 5 秒呼叫一次 API
+    const intervalId = setInterval(fetchOrders, 5);
+
+    // 清除定時器
+    return () => clearInterval(intervalId);
+  }, []);
+  
+  useEffect(() => {
+    const fetchClosedOrders = async () => {
+      try {
+        // const res = await fetch('/api/order');
+        // if (res.ok) {
+        //   const allBill = await res.json();
+        //   // 假如 allBill 是陣列，請用展開運算子來合併現有與新資料
+        //   setBills((prev) => [...prev, ...allBill]);
+        //   // 若 API 回傳的是完整資料，直接 setBills(allBill) 也可以
+        //   // setBills(allBill);
+        // }
+        // 模擬 API 回傳資料
+        const allBill = [
+          {
+            _id: "1",
+            tourist_address: "0xabcdef1234567890",
+            crypto: "ETH",
+            chain: "Polygon",
+            twd_amount: 1000,
+            crypto_amount: 0.3,
+            photo: "https://example.com/photo1.jpg",
+            status: 3,
+            helper_address: "0x1234567890abcdef",
+            description: "ChunShuiTang Bubble Tea",
+          },
+          {
+            _id: "2",
+            tourist_address: "0xabcdef1234567890",
+            crypto: "USDT",
+            chain: "Ethereum",
+            twd_amount: 200,
+            crypto_amount: 60,
+            photo: "https://example.com/photo2.jpg",
+            status: 3,
+            helper_address: "0x1234567890abcdef",
+            description: "Taiwan Beer",
+          }
+        ];
+        setClosedBills(allBill);
+      } catch (error) {
+        console.error('Fetch orders failed:', error);
+      }
+    };
+
+    // 頁面初次載入時先呼叫一次
+    fetchClosedOrders ();
+    // 設定每 5 秒呼叫一次 API
+    const intervalId = setInterval(fetchClosedOrders, 5);
+
+    // 清除定時器
+    return () => clearInterval(intervalId);
+  }, []);
+
+  useEffect(() => {
     if (paymentCountdown <= 0) return;
     const interval = setInterval(() => {
       setPaymentCountdown((prev) => prev - 1);
@@ -193,13 +302,6 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [paymentCountdown]);
 
-  useEffect(() => {
-    if (typeof window.ethereum !== "undefined") {
-      window.ethereum.on("accountsChanged", (accounts: string[]) => {
-        setAccount(accounts[0]);
-      });
-    }
-  }, []);
   useEffect(() => {
     if (typeof window.ethereum !== "undefined") {
       window.ethereum.on("accountsChanged", (accounts: string[]) => {
@@ -261,7 +363,7 @@ export default function Home() {
     }
 
     const form = new FormData();
-    form.append("tourist_address", formData.tourist_address);
+    form.append("tourist_address", account);
     form.append("crypto", formData.crypto);
     form.append("chain", formData.chain);
     form.append("twd_amount", formData.twd_amount);
@@ -280,6 +382,7 @@ export default function Home() {
       // if (!res.ok) throw new Error("Upload failed");
 
       // const savedBill = await res.json();
+      // 模擬 API 回傳資料
       const savedBill = {
         id: 123, // savedBill.id_,
         tourist_address: formData.tourist_address,
@@ -357,9 +460,12 @@ export default function Home() {
       {/* Sidebar */}
       <aside className="w-full md:w-64 bg-gray-900 p-6 border-b md:border-b-0 md:border-r border-gray-700">
         <h2 className="text-xl md:text-2xl font-bold">ETHGlobal Taipei</h2>
-        <TabsList className="flex md:flex-col mt-6 gap-2 bg-transparent p-0">
+        <TabsList className="flex md:flex-col mt-12 gap-3 bg-transparent p-0">
           <TabsTrigger value="payment" className="justify-start w-full">
             <BanknoteArrowUp className="mr-2 h-5 w-5" /> Pending Payments
+          </TabsTrigger>
+          <TabsTrigger value="closed" className="justify-start w-full">
+            <Receipt className="mr-2 h-5 w-5" /> Closed Payments
           </TabsTrigger>
           <TabsTrigger value="upload" className="justify-start w-full">
             <ReceiptText className="mr-2 h-5 w-5" /> New Bill
@@ -395,18 +501,18 @@ export default function Home() {
                   >
                     <div className="flex justify-between items-center mb-2">
                       <div className="text-sm text-gray-400">
-                        Request by: {bill.uploader}
+                        Request by: {bill.tourist_address}
                       </div>
                     </div>
                     <div className="text-sm">
-                      📝 Discription: {bill.description}
+                      Discription: {bill.description}
                     </div>
                     <div className="text-sm">
-                        Amount: {bill.amountNTD} NTD
+                        Amount: {bill.twd_amount} NTD
                       </div>
      
                     <div className="text-sm text-yellow-400">
-                      Crypto you get: {bill.amount} {bill.crypto}
+                      Crypto you get: {bill.crypto_amount} {bill.crypto}
                     </div>
                     {/* 右下角的 Pay 按鈕 */}
                     <Button
@@ -427,6 +533,40 @@ export default function Home() {
         {selectedPayment && (
           <PaymentModal bill={selectedPayment} onClose={() => setSelectedPayment(null)} />
         )}
+
+        <TabsContent value="closed">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <h1 className="text-2xl md:text-3xl font-bold mb-4">Complete Payment</h1>
+            <div className="space-y-4">
+              {closedBills.length === 0 ? (
+                <p className="text-gray-400">There is no complete payment.</p>
+              ) : (
+                closedBills.map((bill) => (
+                  <div
+                    key={bill._id}
+                    className="relative bg-gray-800 p-4 rounded-lg border border-gray-700 w-full"
+                  >
+                    <div className="flex justify-between items-center mb-2">
+                      <div className="text-sm text-gray-400">
+                        Request by: {bill.tourist_address}
+                      </div>
+                    </div>
+                    <div className="text-sm">
+                      Discription: {bill.description}
+                    </div>
+                    <div className="text-sm">
+                        Amount: {bill.twd_amount} NTD
+                      </div>
+     
+                    <div className="text-sm text-yellow-400">
+                      Crypto: {bill.crypto_amount} {bill.crypto}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </motion.div>
+        </TabsContent>
 
         <TabsContent value="upload">
           {selectedBill? (
