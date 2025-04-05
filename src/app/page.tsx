@@ -432,7 +432,7 @@ export default function Home() {
       const amountNTD = parseFloat(formData.twd_amount);
       setFormData((prev) => ({
         ...prev,
-        amountUSD: (amountNTD * exchangeRates.NTD_USD).toFixed(2),
+        usd_amount: (amountNTD * exchangeRates.NTD_USD).toFixed(2),
       }));
     }
   }, [formData.twd_amount]);
@@ -441,7 +441,7 @@ export default function Home() {
     if (formData.crypto && totalCrypto > 0) {
       setFormData((prev) => ({
         ...prev,
-        amount: parseFloat(totalCrypto.toFixed(6)),
+        crypto_amount: parseFloat(totalCrypto.toFixed(6)),
       }));
     }
   }, [totalCrypto, formData.crypto]);
