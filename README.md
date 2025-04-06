@@ -14,6 +14,14 @@ For real-time currency conversion, we integrated the 1inch API to fetch swap rat
 
 Each transaction contract includes simple escrow logic: it holds the tourist’s crypto until a local user confirms the local currency payment to the merchant. After confirmation, the crypto will then be transferred to the local user.
 
+## Procedure
+There will be two parties involved, tourists who don't have access to local bank, and local users who will help tourists pay in exchange of crypto funds.
+1. Toursits will scan and upload the qrcode, a smart contract is created and send the crypto specified by tourists to our derived smart contract
+2. Local users will browse QRpytoPay platform, then select the payment order they wanted to join.
+3. After paying for tourists with scanning the qrcode, local users will press finish button to interact with the derived smart contract.
+4. Users will need to press the acknowledgement button for verification issues.
+5. The order is then completed, the crypto funds will be sent to local user!
+
 ## Contract Deployment
 **We deployed the factory contract on Polygon & Flow!!**
 
