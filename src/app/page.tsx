@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Wallet, ReceiptText, BanknoteArrowUp, Receipt } from "lucide-react";
+import { Wallet, ReceiptText, BanknoteArrowUp, Receipt, ArrowLeftRight, SquarePower } from "lucide-react";
 import { motion } from "framer-motion";
 // import { ethers } from "ethers";
 import ERC20ABI from './ERC20ABI.json'; 
@@ -25,8 +25,13 @@ import {
   BrowserProvider,
   Contract,
   parseUnits,
-  toBigInt
+  toBigInt,
+  solidityPackedKeccak256
 } from 'ethers';
+import { SDK, HashLock, PrivateKeyProviderConnector, NetworkEnum, Web3ProviderConnector, WsProviderConnector } from "@1inch/cross-chain-sdk";
+const env = require('dotenv');
+import { randomBytes } from "crypto";
+import { token_address_mapping_mainnet,native_currency_mapping, token_address_mapping_allnets, chain_id_mapping, chain_rpc_url, chain_blockchain_explorer, factory_address } from "@/lib/constants";
 
 declare global {
   interface Window {
@@ -180,16 +185,16 @@ function PaymentModal({
             
                 if (res.ok) {
                   console.log("訂單更新成功");
-                  alert("你已成功接單！");
+                  alert("Payment confirmed!");
                 } else {
                   console.error("後端更新失敗");
                 }
             
               } catch (err) {
                 console.error("執行 helperDeclaredPaid 時發生錯誤", err);
-                alert("交易失敗，請查看 console");
+                alert("helperDeclaredPaid Failed");
               }
-              alert("Payment confirmed!");
+              
               onClose();
             }}
           >
@@ -200,7 +205,163 @@ function PaymentModal({
     </div>
   );
 }
-  
+ 
+type SwapModalProps = {
+  account: string | null;
+  onClose: () => void;
+  onConfirmSwap: (amount: string, srcToken: string, dstToken: string) => void;
+};
+
+const tokenOptions = [
+  { label: "USDC", address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" },
+  { label: "DAI", address: "0x6B175474E89094C44Da98b954EedeAC495271d0F" },
+  { label: "WETH", address: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2" },
+  // 你可以再加更多 token
+];
+
+export const SwapModal = ({ account, onClose, onConfirmSwap }: SwapModalProps) => {
+  const [amount, setAmount] = useState("1");
+  const [srcToken, setSrcToken] = useState(tokenOptions[0].address);
+  const [dstToken, setDstToken] = useState(tokenOptions[2].address);
+
+  return (
+    <div className="fixed inset-0 flex items-center justify-center z-50">
+      <div className="absolute inset-0 bg-black opacity-50" onClick={onClose}></div>
+      <div className="bg-white text-black p-6 rounded-lg z-10 w-[90%] max-w-md text-center">
+        <h2 className="text-xl font-bold mb-4">Swap Tokens</h2>
+        <p className="mb-4">You're about to initiate a Fusion+ swap using your connected wallet.</p>
+
+        <div className="mb-4 text-left">
+          <label className="block text-sm font-medium mb-1">Amount</label>
+          <Input
+            type="number"
+            value={amount}
+            min="0"
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="Enter amount"
+          />
+        </div>
+
+        <div className="mb-4 text-left">
+          <label className="block text-sm font-medium mb-1">From (Source Token)</label>
+          <Select value={srcToken} onValueChange={setSrcToken}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select token" />
+            </SelectTrigger>
+            <SelectContent>
+              {tokenOptions.map((token) => (
+                <SelectItem key={token.address} value={token.address}>
+                  {token.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="mb-6 text-left">
+          <label className="block text-sm font-medium mb-1">To (Destination Token)</label>
+          <Select value={dstToken} onValueChange={setDstToken}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select token" />
+            </SelectTrigger>
+            <SelectContent>
+              {tokenOptions.map((token) => (
+                <SelectItem key={token.address} value={token.address}>
+                  {token.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex justify-center gap-4">
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button
+            variant="default"
+            className="bg-green-500 hover:bg-green-600 text-white"
+            onClick={() => {
+              onConfirmSwap(amount, srcToken, dstToken); // 傳入三個參數
+              onClose();
+            }}
+          >
+            Confirm Swap
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+// const SwapModal = ({ account, onClose, onConfirmSwap }: SwapModalProps) => {
+//   const [swapAmount, setSwapAmount] = useState("");
+//   const [crypto, setCrypto] = useState("");
+
+//   return (
+//     <div className="fixed inset-0 flex items-center justify-center z-50">
+//       {/* 背景遮罩 */}
+//       <div className="absolute inset-0 bg-black opacity-50" onClick={onClose}></div>
+//         <div className="mb-4 text-left">
+//           <Label htmlFor="swapAmount" className="mb-1">
+//             Amount
+//           </Label>
+//           <Input
+//             id="swapAmount"
+//             type="text"
+//             value={swapAmount}
+//             onChange={(e) => setSwapAmount(e.target.value)}
+//             placeholder="Input QR payment TxCode"
+//           />
+//         </div>
+//         <div className="mb-4 text-left">
+//           <Label htmlFor="crypto" className="mb-1">
+//             Crypto
+//           </Label>
+//           <Select onValueChange={(value) => setCrypto(value)} value={crypto}>
+//             <SelectTrigger id="crypto">
+//               <SelectValue placeholder="請選擇" />
+//             </SelectTrigger>
+//             <SelectContent>
+//               <SelectItem value="ETH">ETH</SelectItem>
+//               <SelectItem value="USDT">USDT</SelectItem>
+//               <SelectItem value="USDC">USDC</SelectItem>
+//               <SelectItem value="Bitcoin">Bitcoin</SelectItem>
+//             </SelectContent>
+//           </Select>
+//           <Label htmlFor="crypto" className="mb-1">
+//             Crypto
+//           </Label>
+//           <Select onValueChange={(value) => setCrypto(value)} value={crypto}>
+//             <SelectTrigger id="crypto">
+//               <SelectValue placeholder="請選擇" />
+//             </SelectTrigger>
+//             <SelectContent>
+//               <SelectItem value="ETH">ETH</SelectItem>
+//               <SelectItem value="USDT">USDT</SelectItem>
+//               <SelectItem value="USDC">USDC</SelectItem>
+//               <SelectItem value="Bitcoin">Bitcoin</SelectItem>
+//             </SelectContent>
+//           </Select>
+//         </div>
+//         {/* 按鈕區 */}
+//         <div className="flex justify-center space-x-4">
+//           <Button 
+//             className="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded"
+//             onClick={async () => {
+//               try {
+                
+//               } catch (err) {
+
+//               }
+//               alert("Swap confirmed!");
+//               onClose();
+//             }}
+//           >
+//             Swap
+//           </Button>
+//         </div>
+//       </div>
+//   );
+// }
+
 export default function Home() {
   const [selectedBill, setSelectedBill] = useState<any | null>(null);
   const [paymentCountdown, setPaymentCountdown] = useState(-1);
@@ -208,6 +369,7 @@ export default function Home() {
   const [account, setAccount] = useState<string | null>(null);
   const [bills, setBills] = useState<any[]>([]);
   const [closedBills, setClosedBills] = useState<any[]>([]);
+  const [showSwapModal, setShowSwapModal] = useState(false);
 
   const [formData, setFormData] = useState({
     orderID: "",
@@ -228,14 +390,13 @@ export default function Home() {
     const fetchOrder = async () => {
 
       try {
-        const order_id = localStorage.getItem("order_id");
-
-        if ( order_id ) {
-          const res = await fetch(`/api/order?id=${order_id}`);
-          
+        const res = await fetch(`/api/order/pending?tourist_address=${account}`);
+        const data = await res.json();
+        if (data?.hasData) {
+          // setSelectedBill(data.order);
           if (res.ok) {
-            const order = await res.json();
-            if (order.status === 2) {
+            // const order = await res.json();
+            if (data.order.status === 2) {
               setPaymentCountdown(300);
               clearInterval(intervalId);
             }
@@ -255,7 +416,7 @@ export default function Home() {
 
     // 清除定時器
     return () => clearInterval(intervalId);
-  }, []);
+  }, [account]);
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -341,9 +502,100 @@ export default function Home() {
         console.error("User rejected connection", error);
       }
     } else {
-      alert("請先安裝 MetaMask！");
+      alert("Please install MetaMask!");
     }
   };
+
+  // const swap = async (amount: string, srcToken: string, dstToken: string) => {
+  //   try {
+
+  //     const browserProvider = new BrowserProvider(window.ethereum);
+  //     const signer = await browserProvider.getSigner();
+  //     const walletAddress = await signer.getAddress();
+  
+  //     // 2. 提供給 1inch SDK 用的 Web3ProviderConnector
+  //     const blockchainProvider = new Web3ProviderConnector(window.ethereum);
+  
+  //     // 3. 建立 SDK 實例
+  //     const sdk = new SDK({
+  //       url: "https://api.1inch.dev/fusion-plus",
+  //       authKey: process.env.inch_API_KEY!,
+  //       blockchainProvider
+  //     });
+  
+  //     // 3. 設定基本參數
+  //     const srcChainId = NetworkEnum.ETHEREUM;
+  //     const dstChainId = NetworkEnum.POLYGON;
+  //     const srcTokenAddress = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"; // USDC
+  //     const dstTokenAddress = "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619"; // WETH
+  //     const amount = "1000000"; // 1 USDC (6 decimals)
+  
+  //     // 4. 拿 quote
+  //     const quote = await sdk.getQuote({
+  //       srcChainId,
+  //       dstChainId,
+  //       srcTokenAddress,
+  //       dstTokenAddress,
+  //       amount,
+  //       enableEstimate: true,
+  //       walletAddress
+  //     });
+  
+  //     console.log("Got quote:", quote);
+  
+  //     // 5. 準備 secrets/hashLock
+  //     const secretsCount = quote.getPreset().secretsCount;
+  //     const secrets = Array.from({ length: secretsCount }).map(() => '0x' + Buffer.from(randomBytes(32)).toString('hex'));
+  //     const secretHashes = secrets.map(secret => HashLock.hashSecret(secret));
+  
+  //     // const hashLock = secretsCount === 1
+  //     //   ? HashLock.forSingleFill(secrets[0])
+  //     //   : HashLock.forMultipleFills(
+  //     //       secretHashes.map((h, i) => solidityPackedKeccak256(['uint64', 'bytes32'], [BigInt(i), h.toString()]))
+  //     //     );
+  
+  //     const hashLock = secretsCount === 1
+  //     ? HashLock.forSingleFill(secrets[0])
+  //     : HashLock.forMultipleFills(
+  //         secretHashes.map((secretHash, i) =>
+  //             solidityPackedKeccak256(['uint64', 'bytes32'], [i, secretHash.toString()])
+  //         )
+  //     );
+  //     // 6. 建立訂單
+  //     const quoteResponse = await sdk.placeOrder(quote, {
+  //       walletAddress,
+  //       hashLock,
+  //       secretHashes
+  //     });
+  
+  //     const orderHash = quoteResponse.orderHash;
+  //     console.log("Order placed:", orderHash);
+  
+  //     // 7. 開始 polling 填單
+  //     const poll = setInterval(async () => {
+  //       const order = await sdk.getOrderStatus(orderHash);
+  //       console.log("order status:", order.status);
+  
+  //       if (order.status === "executed") {
+  //         clearInterval(poll);
+  //         console.log("🎉 Order complete!");
+  //         alert("Swap 已完成！");
+  //       }
+  
+  //       const fillsObject = await sdk.getReadyToAcceptSecretFills(orderHash);
+  //       if (fillsObject.fills.length > 0) {
+  //         fillsObject.fills.forEach(async fill => {
+  //           await sdk.submitSecret(orderHash, secrets[fill.idx]);
+  //           console.log(`🔐 Secret submitted for fill ${fill.idx}`);
+  //         });
+  //       }
+  //     }, 5000);
+  
+  //   } catch (err) {
+  //     console.error("Swap failed:", err);
+  //     alert("Swap 發生錯誤，請查看 console。");
+  //   }
+  // };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -386,15 +638,28 @@ export default function Home() {
     try {
       const provider = new BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
-  
-      const factoryAddress = '0x649C11cF3A651bEA08cb923395eCf26C54b18982';
+      console.log(formData.chain);
+      // await window.ethereum.request({
+      //   method: 'wallet_addEthereumChain',
+      //   params: [
+      //     {
+      //       chainId: chain_id_mapping[formData.chain as keyof typeof chain_id_mapping],
+      //       chainName: formData.chain,
+      //       rpcUrls: [chain_rpc_url[formData.chain as keyof typeof chain_rpc_url]],
+      //       nativeCurrency: native_currency_mapping[formData.chain as keyof typeof native_currency_mapping],
+      //       blockExplorerUrls: [chain_blockchain_explorer[formData.chain as keyof typeof chain_blockchain_explorer]],
+      //     },
+      //   ],
+      // });  
+      const factoryAddress = factory_address[formData.chain as keyof typeof factory_address];
       const factoryABI = [
         "function createEscrow(address _token, uint256 _mainAmount, uint256 _collateralAmount) external",
         "function escrowAddresses(uint256) view returns (address)",
         "function escrowCount() view returns (uint256)"
       ];
   
-      const tokenAddress = "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238"; // USDC (6 decimals)
+      const chainKey = formData.chain as keyof typeof token_address_mapping_allnets["USDC"];
+      const tokenAddress = token_address_mapping_allnets["USDC"][chainKey]; // USDC (6 decimals)
       const token = new Contract(tokenAddress, ERC20ABI, signer);
       const factory = new Contract(factoryAddress, factoryABI, signer);
   
@@ -425,10 +690,10 @@ export default function Home() {
       newEscrowAddr = await factory.escrowAddresses(count);
       console.log("New Escrow Address:", newEscrowAddr);
   
-      alert("訂單成功建立！");
+      alert("Escrow Successed!");
     } catch (err) {
       console.error("交易失敗", err);
-      alert("交易失敗，請檢查 console");
+      alert("Escrow failed");
     }
 
     const form = new FormData();
@@ -468,7 +733,7 @@ export default function Home() {
       });
     } catch (err) {
       console.error(err);
-      alert("上傳失敗！");
+      alert("Upload failed");
     }
   };
 
@@ -541,7 +806,7 @@ export default function Home() {
     <Tabs defaultValue="payment" className="flex flex-col md:flex-row min-h-screen bg-gradient-to-br from-black via-gray-900 to-gray-800 text-white">
       {/* Sidebar */}
       <aside className="w-full md:w-64 bg-gray-900 p-6 border-b md:border-b-0 md:border-r border-gray-700">
-        <h2 className="text-xl md:text-2xl font-bold">ETHGlobal Taipei</h2>
+        <h2 className="text-xl md:text-2xl font-bold">QRyptoPay</h2>
         <TabsList className="flex md:flex-col mt-12 gap-3 bg-transparent p-0">
           <TabsTrigger value="payment" className="justify-start w-full">
             <BanknoteArrowUp className="mr-2 h-5 w-5" /> Pending Payments
@@ -563,12 +828,27 @@ export default function Home() {
               Connected:<br /> {account}
             </div>
           ) : (
-            <Button size="sm" onClick={connectWallet}>
+            <Button size="sm" onClick={connectWallet} className="hover:bg-white hover:text-black mt-2">
               <Wallet className="mr-2 h-4 w-4" /> Connect Wallet
             </Button>
           )}
+          {/* <Button
+            size="sm"
+            onClick={() => setShowSwapModal(true)}
+            className="hover:bg-white hover:text-black mt-2"
+          >
+            <ArrowLeftRight className="mr-2 h-4 w-4" /> Swap
+          </Button> */}
         </div>
-
+        {/* {showSwapModal && (
+          <SwapModal
+            account={account}
+            onClose={() => setShowSwapModal(false)}
+            onConfirmSwap={(amount, srcToken, dstToken) => {
+              swap(amount, srcToken, dstToken);
+            }}
+          />
+        )} */}
         <TabsContent value="payment">
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <h1 className="text-2xl md:text-3xl font-bold mb-4">📋 Pending List</h1>
@@ -606,7 +886,22 @@ export default function Home() {
                         try {
                           const provider = new BrowserProvider(window.ethereum);
                           const signer = await provider.getSigner();
-                      
+                          // await window.ethereum.request({
+                          //   method: 'wallet_addEthereumChain',
+                          //   params: [
+                          //     {
+                          //       chainId: chain_id_mapping[selectedBill.chain as keyof typeof chain_id_mapping], // 80001 in hex
+                          //       chainName: selectedBill.chain,
+                          //       rpcUrls: [chain_rpc_url[selectedBill.chain as keyof typeof chain_rpc_url]],
+                          //       nativeCurrency: {
+                          //         name: 'MATIC',
+                          //         symbol: 'MATIC',
+                          //         decimals: 18,
+                          //       },
+                          //       blockExplorerUrls: [chain_blockchain_explorer[selectedBill.chain as keyof typeof chain_blockchain_explorer]],
+                          //     },
+                          //   ],
+                          // });
                           const escrowAddress = bill.contract_address;
                           const escrowABI = [
                             "function acceptOrder() external",
@@ -629,16 +924,16 @@ export default function Home() {
                             }),
                           });
                       
-                          if (res.ok) {
-                            console.log("訂單更新成功");
-                            alert("你已成功接單！");
-                          } else {
-                            console.error("後端更新失敗");
-                          }
+                          // if (res.ok) {
+                          //   console.log("訂單更新成功");
+                          //   alert("你已成功接單！");
+                          // } else {
+                          //   console.error("後端更新失敗");
+                          // }
                       
                         } catch (err) {
                           console.error("執行 acceptOrder 時發生錯誤", err);
-                          alert("交易失敗，請查看 console");
+                          alert("acceptOrder Failed");
                         }
                       }}
                     >
@@ -705,7 +1000,7 @@ export default function Home() {
                   <span className="font-bold">Uploader:</span> {selectedBill.tourist_address}
                 </p>
                 <p>
-                  <span className="font-bold">Amount:</span> {selectedBill.twd_amount} NTD / {selectedBill.usd_amount} USD
+                  <span className="font-bold">Amount:</span> {selectedBill.twd_amount} NTD / {selectedBill.twd_amount * exchangeRates.NTD_USD} USD
                 </p>
                 <p>
                   <span className="font-bold">Crypto:</span> {selectedBill.crypto_amount} {selectedBill.crypto} 
@@ -758,17 +1053,16 @@ export default function Home() {
                     
                         if (res.ok) {
                           console.log("訂單更新成功");
-                          alert("你已成功接單！");
+                          alert("Payment complete!");
                         } else {
                           console.error("後端更新失敗");
                         }
                     
                       } catch (err) {
                         console.error("執行 confirmPayment 時發生錯誤", err);
-                        alert("交易失敗，請查看 console");
+                        alert("confirmPayment Failed");
                       }
                       setPaymentCountdown(-1);
-                      alert("Payment complete!");
                     }}>
                     Done ({formattedCountdown})
                   </Button>
