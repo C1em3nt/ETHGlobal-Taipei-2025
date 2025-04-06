@@ -390,18 +390,23 @@ export default function Home() {
     const fetchOrder = async () => {
 
       try {
-        const res = await fetch(`/api/order/pending?tourist_address=${account}`);
-        const data = await res.json();
-        if (data?.hasData) {
-          // setSelectedBill(data.order);
-          if (res.ok) {
-            // const order = await res.json();
-            if (data.order.status === 2) {
-              setPaymentCountdown(300);
-              clearInterval(intervalId);
-            }
-          }
+        // const res = await fetch(`/api/order/pending?tourist_address=${account}`);
+        // const data = await res.json();
+        // if (data?.hasData) {
+        //   setSelectedBill(data.order);
+        //   if (res.ok) {
+        //     // const order = await res.json();
+        //     if (data.order.status === 2) {
+        //       setPaymentCountdown(300);
+        //       clearInterval(intervalId);
+        //     }
+        //   }
           
+        // }
+
+        if (selectedBill.status === 2 && paymentCountdown === -1) {
+          setPaymentCountdown(300);
+          clearInterval(intervalId);
         }
         
       } catch (error) {
@@ -416,7 +421,7 @@ export default function Home() {
 
     // 清除定時器
     return () => clearInterval(intervalId);
-  }, [account]);
+  }, [selectedBill]);
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -705,6 +710,7 @@ export default function Home() {
     form.append("photo", formData.photo);
     form.append("description", formData.description);
     form.append("contract_address", newEscrowAddr);
+    form.append("status", "0");
     // form.append("amountUSD", formData.usd_amount);
     // form.append("tips", formData.tips);
 
